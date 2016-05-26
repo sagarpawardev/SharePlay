@@ -1,29 +1,33 @@
 package sagar.musicshare.activity;
 
-import android.content.Intent;
-import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.AppCompatButton;
 import android.support.v7.widget.AppCompatEditText;
 import android.support.v7.widget.Toolbar;
-import android.util.Log;
 import android.view.View;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.Toast;
 
-import java.io.File;
+import java.util.concurrent.Executor;
 
 import sagar.musicshare.Globals;
 import sagar.musicshare.R;
-import sagar.musicshare.utils.SongReceiver;
+import sagar.musicshare.ShareBucket;
+import sagar.musicshare.utils.SongHelper;
+import sagar.musicshare.utils.SongPlayerClient;
+import sagar.musicshare.utils.TimerTaskUtil;
+import sagar.musicshare.utils.asynctasks.SongReceiver;
+import sagar.musicshare.utils.SyncHelper;
+import sagar.musicshare.utils.asynctasks.TimestampReceiver;
 
-public class JoinerActivity extends AppCompatActivity implements SongReceiver.Callback{
+public class JoinerActivity extends AppCompatActivity
+        implements SongReceiver.Callback, SongPlayerClient.OnSongLoadedListener, TimestampReceiver.Callback{
 
     SongReceiver receiver = null;
+    TimestampReceiver dtsReceiver = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,35 +47,81 @@ public class JoinerActivity extends AppCompatActivity implements SongReceiver.Ca
 
         final AppCompatEditText etServerIp = (AppCompatEditText) findViewById(R.id.etServerIp);
 
+        //Look For Running Services
+        //-- Look For Running Services
+
+        //Download Song
         Button btn = (Button) findViewById(R.id.btnStart);
         btn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
 
-                //Send Song Request
-                String str = etServerIp.getText().toString();
-                receiver = new SongReceiver(str, JoinerActivity.this);
-                receiver.execute();
+                //Find Server IP
+                String serverIp = etServerIp.getText().toString();
+                //-- Find Server IP
+
+                //Publish IP
+                Globals.SERVER_IP = serverIp;
+                //-- Publish IP
+
+                //Reset Status
+                SongPlayerClient.resetStatus();
+                //-- Resete Status
+
+                //Download Song
+                receiver = new SongReceiver(Globals.SERVER_IP, JoinerActivity.this);
+                receiver.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
                 Toast.makeText(JoinerActivity.this, "Request Sent", Toast.LENGTH_SHORT).show();
-                //-- Send Song Request
+                //-- Download Song
             }
         });
-    }
+        //-- Download Song
 
-    protected void playFile(){
-
-        String filePath = Globals.APP_DIRECTORY + "/" + Globals.TEMP_FILE_NAME;
-
-        Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setDataAndType(Uri.fromFile(new File(filePath)), "audio/*");
-        startActivity(intent);
     }
 
     @Override
     public void onSongReceive() {
-        //Request Time
-        //-- Request Time
 
-        playFile();
+        //----------------PARALLEL TASK 1/2--------------//
+        //Publish Song Path
+        ShareBucket.setSongPath(Globals.TEMP_FILE_PATH);
+        //-- Publish Song Path
+
+        //Load Song
+        SongPlayerClient.load(this, Globals.TEMP_FILE_PATH, this);
+        //-- Load Song
+
+        //---------------PARALLEL TASK 2/2---------------//
+        //Request DTS
+        dtsReceiver = new TimestampReceiver(Globals.SERVER_IP, this);
+        dtsReceiver.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        //-- Request DTS
+    }
+
+    @Override
+    public void onSongLoaded() {
+        //Set Load Status
+        SongPlayerClient.songLoaded();
+        //-- Set Load Status
+
+        //Schedule Song
+        SongPlayerClient.playSongWithDts();
+        //-- Schedule Song
+    }
+
+    @Override
+    public void onTimestampReceive(long timestamp, int seekPosition) {
+        //Publish DTS and Seek Position
+        ShareBucket.setStartTimestamp(timestamp);
+        ShareBucket.setSeekPosition(seekPosition);
+        //-- Publish DTS and Seek Position
+
+        //Set DTS Status
+        SongPlayerClient.dtsReady();
+        //-- Set DTS Status
+
+        //Try to play song
+        SongPlayerClient.playSongWithDts();
+        //-- Try to play Song
     }
 }

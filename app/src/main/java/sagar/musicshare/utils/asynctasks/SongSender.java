@@ -1,4 +1,4 @@
-package sagar.musicshare.utils;
+package sagar.musicshare.utils.asynctasks;
 
 import android.content.Context;
 import android.os.AsyncTask;
@@ -9,7 +9,9 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -23,13 +25,19 @@ public class SongSender extends AsyncTask<File, Void, String> {
 
     private int port = Globals.SONG_PORT;
     private Context context;
-    private Callback callback;
-    private ServerSocket servsock = null;
+    private static ServerSocket servsock = null;
     private File fileToSend = null;
+    private static int reqCounts;
 
-    public SongSender(Context context, Callback callback){
+    public SongSender(Context context){
         this.context = context;
-        this.callback = callback;
+
+        if(servsock != null)
+            try {
+                servsock.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
     }
 
     @Override
@@ -45,16 +53,19 @@ public class SongSender extends AsyncTask<File, Void, String> {
         OutputStream os = null;
         Socket sock = null;
         File myFile = file;
+
+        Log.e("My Tag", "Starting Port....");
         try {
             servsock = new ServerSocket(port);
+            Log.e("My Tag", "Port Opened....");
 
             while (true) {
-                System.out.println("Waiting...");
+                System.out.println("Waiting for Requests...");
                 try {
                     sock = servsock.accept();
 
-                    Log.e("MyTag","Accepted connection : " + sock);
-                    // send file
+                    Log.e("My Tag","Accepted connection : " + sock);
+                    //Send Song
                     byte [] mybytearray  = new byte [(int)myFile.length()];
                     fis = new FileInputStream(myFile);
                     bis = new BufferedInputStream(fis);
@@ -63,7 +74,8 @@ public class SongSender extends AsyncTask<File, Void, String> {
                     System.out.println("Sending " + myFile.getName() + "(" + mybytearray.length + " bytes)");
                     os.write(mybytearray, 0, mybytearray.length);
                     os.flush();
-                    System.out.println("Done.");
+                    //Send Song
+                    Log.e("My Tag", "Song Sent");
 
                     publishProgress();
                 }
@@ -72,13 +84,15 @@ public class SongSender extends AsyncTask<File, Void, String> {
                     if (os != null) os.close();
                     if (sock!=null) sock.close();
                 }
+
+                Log.e("My Tag", "Number of Requests: "+reqCounts++);
             }
         } catch (FileNotFoundException e) {
-            Log.e("MyTag", e.getMessage());
+            Log.e("My Tag Socket", e.getMessage());
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
-            Log.e("MyTag", e.getMessage());
+            Log.e("My Tag Socket", e.getMessage());
         } finally {
             if (servsock != null) try {
                 servsock.close();
@@ -86,15 +100,5 @@ public class SongSender extends AsyncTask<File, Void, String> {
                 e.printStackTrace();
             }
         }
-    }
-
-    @Override
-    protected void onPostExecute(String s) {
-        callback.onSongSent(true, fileToSend);
-        super.onProgressUpdate();
-    }
-
-    public interface Callback{
-        void onSongSent(boolean result, File file);
     }
 }

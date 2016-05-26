@@ -1,14 +1,14 @@
 package sagar.musicshare.activity;
 
 import android.content.Intent;
-import android.net.Uri;
+import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.Environment;
-import android.os.Handler;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
@@ -18,15 +18,24 @@ import com.nononsenseapps.filepicker.FilePickerActivity;
 
 import java.io.File;
 
+import sagar.musicshare.Globals;
 import sagar.musicshare.R;
-import sagar.musicshare.utils.SongSender;
+import sagar.musicshare.ShareBucket;
+import sagar.musicshare.utils.SongPlayerServer;
+import sagar.musicshare.utils.asynctasks.SongSender;
+import sagar.musicshare.utils.TimerTaskUtil;
+import sagar.musicshare.utils.TimestampLogics;
 
-public class CreatorActivity extends AppCompatActivity implements SongSender.Callback{
+public class CreatorActivity extends AppCompatActivity implements TimerTaskUtil.Callback, SongPlayerServer.OnSongLoadedListener{
 
     private final int OPEN_REQUEST_CODE = 1;
     TextView tvFileName = null;
     public int numRequests = 0;
     TextView tvNumRequests = null;
+
+    MediaPlayer nextPlayer = null, prevPlayer = null;
+
+    Intent data = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,21 +77,36 @@ public class CreatorActivity extends AppCompatActivity implements SongSender.Cal
     @Override
     protected void onActivityResult(int requestCode, int resultCode, final Intent data) {
 
+        this.data = data;
         switch (requestCode) {
             case OPEN_REQUEST_CODE:
                 if (resultCode == RESULT_OK) {
-                    //Open Sender Port
-                    String filePath = data.getData().getPath();
-                    File file = new File(filePath);
-                    new SongSender(this, this).execute(file);
-                    //-- Open Sender Port
 
-                    new Handler().postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            playFile(data);
-                        }
-                    }, 3000);
+                    //-------------PARALLEL TASK 1/3-------------//
+                    //Publish Song
+                    String filePath = data.getData().getPath();
+                    ShareBucket.setSongPath(filePath);
+                    //-- Publish Song
+
+                    //Load Song
+                    SongPlayerServer.load(this, filePath, this);
+                    //-- Load Song
+
+
+                    //-------------PARALLEL TASK 2/3-------------//
+                    //Open SongSender Port
+                    File file = new File(filePath);
+                    new SongSender(getApplicationContext()).execute(file);
+                    //-- Open SongSender Port
+
+
+                    //-------------PARALLEL TASK 3/3-------------//
+                    //Open DTS publish port
+
+                    //-- OPen DTS publish port
+                    /*//Set Song scheduler
+                    new SongHelper().playSongAfterDelay(CreatorActivity.this, Globals.DELAY_IN_SEC, data);
+                    //-- Set Song Seduler*/
                 }
                 break;
             default:
@@ -91,24 +115,32 @@ public class CreatorActivity extends AppCompatActivity implements SongSender.Cal
         super.onActivityResult(requestCode, resultCode, data);
     }
 
-    protected void playFile(Intent data){
-
-        String filePath = data.getData().getPath();
-
-        Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setDataAndType(Uri.fromFile(new File(filePath)), "audio/*");
-        startActivity(intent);
+    @Override
+    public void onTimeOut(boolean result) {
+        Log.e("My Tag", "Starting Song..........");
+        //Play Song
+        nextPlayer.start();
+        //-- Play Song
+        Log.e("My Tag", "Song Started!!!!!!!!");
     }
 
     @Override
-    public void onSongSent(boolean result, File file) {
-        //Update Count
-        numRequests++;
-        tvNumRequests.setText("Num Requests"+numRequests);
-        //-- Update Count
+    public void onSongLoaded() {
 
-        //Open Sender Port Again
-        new SongSender(this, this).execute(file);
-        //-- Open Sender Port Again
+        //Create DTS and Publish
+        long dts = TimestampLogics.getDelayedTimestamp(Globals.DELAY_IN_SEC);
+        ShareBucket.setStartTimestamp(dts);
+        //-- Create DTS and Publish
+
+        //Set Seek Position and Publish
+        int seekPosition = 0;
+        ShareBucket.setSeekPosition(seekPosition);
+        //-- Set Seek Position and Publish
+
+        Log.e("My Tag","Scheduling Song");
+        //Play Song with DTS
+        SongPlayerServer.playSongWithDts();
+        //-- Play Song with DTS
+        Log.e("My Tag","Song Scheduled");
     }
 }
