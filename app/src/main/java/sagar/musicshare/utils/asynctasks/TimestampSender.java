@@ -7,6 +7,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedInputStream;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -69,10 +70,16 @@ public class TimestampSender extends AsyncTask {
                     //-- Convert DTS and SeekPosition to JSON
 
                     //Send JSON
-                    PrintWriter writer = new PrintWriter(os, true);
+                    /*PrintWriter writer = new PrintWriter(os, true);
                     writer.println(mainJson.toString());
+                    os.flush();*/
+
+                    DataOutputStream dos = new DataOutputStream(os);
+                    dos.writeUTF(mainJson.toString());
                     os.flush();
                     //-- Send JSON
+
+
                     Log.e("My Tag", "Timestamp sent");
 
                     publishProgress();

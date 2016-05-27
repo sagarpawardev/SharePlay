@@ -8,6 +8,7 @@ import org.json.JSONObject;
 
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
+import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -16,6 +17,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.sql.Timestamp;
 
 import sagar.musicshare.Globals;
 import sagar.musicshare.utils.SyncHelper;
@@ -42,12 +44,6 @@ public class TimestampReceiver extends AsyncTask {
         return null;
     }
 
-    @Override
-    protected void onPostExecute(Object o) {
-        super.onPostExecute(o);
-    }
-
-
     public void receiveTimestamp(){
         int current = 0;
         Socket sock = null;
@@ -58,20 +54,26 @@ public class TimestampReceiver extends AsyncTask {
             Log.e("My Tag", "Receiving Timestamp");
             //Reading DTS
             InputStream is = sock.getInputStream();
-            BufferedReader br = new BufferedReader(new InputStreamReader(is));
+
+            //Receiving Json
+            DataInputStream dis = new DataInputStream(is);
+            String result  = dis.readUTF();
+            //-- Receiving JSon
+
+            /*BufferedReader br = new BufferedReader(new InputStreamReader(is));
             String s = "";
             String temp = "";
             do{
                 s += temp;
                 temp = br.readLine();
-            }while(temp != null);
+            }while(temp != null);*/
             //-- Reading DTS
-            Log.e("My Tag", "Received String: "+s);
+            Log.e("My Tag", "Received String: "+result);
 
             //Decoding JSON
             JSONObject mainObject = null;
             try {
-                mainObject = new JSONObject(s);
+                mainObject = new JSONObject(result);
                 timestamp = mainObject.getLong(Globals.TIMESTAMP_JSON_KEY);
                 seekPosition = mainObject.getInt(Globals.SEEK_POSITION_JSON_KEY);
             } catch (JSONException e) {
@@ -79,7 +81,7 @@ public class TimestampReceiver extends AsyncTask {
             }
             //-- Decoding JSON
 
-            Log.e("My Tag", "Timestamp Received: Timestamp="+timestamp+" SeekPosition="+seekPosition);
+            Log.e("My Tag", "Timestamp Received: Timestamp="+new Timestamp(timestamp)+" SeekPosition="+seekPosition);
 
         } catch (UnknownHostException e) {
             e.printStackTrace();
@@ -95,9 +97,9 @@ public class TimestampReceiver extends AsyncTask {
     }
 
     @Override
-    protected void onPreExecute() {
+    protected void onPostExecute(Object o) {
         callback.onTimestampReceive(timestamp, seekPosition);
-        super.onPreExecute();
+        super.onPostExecute(o);
     }
 
     public interface Callback{

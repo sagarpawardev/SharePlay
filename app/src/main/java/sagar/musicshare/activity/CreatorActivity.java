@@ -2,6 +2,7 @@ package sagar.musicshare.activity;
 
 import android.content.Intent;
 import android.media.MediaPlayer;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.support.design.widget.FloatingActionButton;
@@ -25,6 +26,7 @@ import sagar.musicshare.utils.SongPlayerServer;
 import sagar.musicshare.utils.asynctasks.SongSender;
 import sagar.musicshare.utils.TimerTaskUtil;
 import sagar.musicshare.utils.TimestampLogics;
+import sagar.musicshare.utils.asynctasks.TimestampSender;
 
 public class CreatorActivity extends AppCompatActivity implements TimerTaskUtil.Callback, SongPlayerServer.OnSongLoadedListener{
 
@@ -102,8 +104,9 @@ public class CreatorActivity extends AppCompatActivity implements TimerTaskUtil.
 
                     //-------------PARALLEL TASK 3/3-------------//
                     //Open DTS publish port
-
+                    new TimestampSender().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
                     //-- OPen DTS publish port
+
                     /*//Set Song scheduler
                     new SongHelper().playSongAfterDelay(CreatorActivity.this, Globals.DELAY_IN_SEC, data);
                     //-- Set Song Seduler*/
