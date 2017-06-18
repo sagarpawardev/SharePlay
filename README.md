@@ -1,4 +1,4 @@
-# SharePlay (*******Project is closed********)
+# SharePlay (Project closed)
 Android App can sync share and play music on various devices This app creates radio station like environment using WLAN Technology
 
 <h2>Basic Assumptions</h2>
